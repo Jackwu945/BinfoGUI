@@ -26,29 +26,57 @@ def mainSub(keyword):
         #正则去除多余字符
         http=re.findall(r'href="//(.*)" target="_blank" title="',str(link))
         https="https://"+http[0]
-        lin=https
     #错误类型①：网络错误，返回错误信息
     except requests.exceptions.ConnectionError:
         return  "网络错误或服务端网络错误。（requests.exceptions.ConnectionError）"
     #错误类型②：索引错误（即返回列表为空[]）
     except IndexError:
         # 有可能是b站隐藏的番剧，尝试在上方字典中查询隐藏番剧
+        #尝试在百度搜索
         try:
-            #尝试获取字典中键为传入字符串的值（即b站该番剧的号码）
-            val=dic[keyword]
-            #由于ss的号码与mid不同，先打开视频播放页，再获取ss码
-            tmphtps="https://www.bilibili.com/bangumi/play/ss"+str(val)
-            url = requests.get(tmphtps)
-            url.encoding = 'utf-8'
-            text = url.text
-            soup = BeautifulSoup(text, 'lxml')
-            https=soup.select('#media_module > div > a.media-title')
-            https=re.findall(r'"//(.*)?from=search',str(https))
-            https='https://'+https[0]
+            # #尝试获取字典中键为传入字符串的值（即b站该番剧的号码）
+            # val=dic[keyword]
+            # #由于ss的号码与mid不同，先打开视频播放页，再获取ss码
+            # tmphtps="https://www.bilibili.com/bangumi/play/ss"+str(val)
+            # url = requests.get(tmphtps)
+            # url.encoding = 'utf-8'
+            # text = url.text
+            # soup = BeautifulSoup(text, 'lxml')
+            # https=soup.select('#media_module > div > a.media-title')
+            # https=re.findall(r'"//(.*)?from=search',str(https))
+            # https='https://'+https[0]
+
+            url = 'http://www.baidu.com/s'
+
+            headers = {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.16 Safari/537.36",
+            }
+
+            params = {
+                'wd': '{} b站'.format(keyword)
+            }
+
+            resp = requests.get(url, headers=headers, params=params).content.decode()
+            # \31  > h3 > a
+            # \32  > h3 > a
+            # \31  > h3 > a > em:nth-child(1)
+            soup = BeautifulSoup(resp, 'lxml')
+
+            a = soup.select(r'#\31  > h3 > a')
+            title = soup.select(r'#\31  > h3 > a > em:nth-child(2)')
+
+            link = re.findall(r'href="(.*)" target="_blank"', str(a))
+            title = re.findall(r'>(.*)<', str(title))
+
+            if title[0] == 'bilibili':
+                https=link[0]
+
         except:
             return "b站没有此番（IndexError）Tips:假如是隐藏番剧，请输入全名，你也可以选择在m站搜索"
 
     #获取网页源代码
+    lin = https
     url=requests.get(https)
     url.encoding = 'utf-8'
     text = url.text
@@ -188,55 +216,65 @@ def bimisearch(keyword):
         for k in bimilib:
             if keyword in k:
                 val=bimilib[k]
+                print(val)
                 index+=1
+                https = 'http://www.bimibimi.me/bangumi/bi/' + str(val)
     except:
         error='泪目，m站也没有'
         return error
-    https='http://www.bimibimi.me/bangumi/bi/'+str(val)
     # 获取网页源代码
-    url = requests.get(https)
-    url.encoding = 'utf-8'
-    text = url.text
-    # print(text)
-    # 初始化BS
-    soup = BeautifulSoup(text, 'lxml')
-
-    bangumiTitle = soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > div > h1')
-    begin_date = soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(5)')
-    whattime = soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(10)')
-    introduction=soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li.li_intro.clearfix > p')
-    actorlis=[]
-    taglis=[]
-    actor=None
-    #履历所有声优的超链接
-    for i in range(20):
-        try:
-            actor=soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(2) > a:nth-child({})'.format(i+2))
-            actor=re.findall(r'>(.*)</a>',str(actor[0]))
-            actorlis.append(actor[0])
-        except:
-            break
-    #同上，履历标签
-    for j in range(6):
-        try:
-            tag=soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(3) > a:nth-child({})'.format(j+2))
-            tag=re.findall(r'>(.*)</a>',str(tag[0]))
-            taglis.append(tag[0])
-        except:
-            break
-    bangumiTitle=re.findall(r'>(.*)<',str(bangumiTitle))
-    begin_date=re.findall(r'</em>(.*)</li>',str(begin_date))
-    whattime=re.findall(r'</em>(.*)</li>',str(whattime))
-    introduction=re.findall(r'<p>(.*)</p></span>',str(introduction))
-
-    actorformat=str(actorlis).translate(str.maketrans('', '', r'[]'))
-    actorformat = str(actorformat).translate(str.maketrans('', '', r"''"))
-
-    tagformat=str(taglis).translate(str.maketrans('', '', r'[]'))
-    tagformat = str(tagformat).translate(str.maketrans('', '', r"''"))
-
     try:
-        rtxt = ("Search result from bimibimi.me，有{}个结果，只取最新的，如需查找其他的，请补全。\n\n番剧标题:{}，\n标签:{}\n开播时间:{}，更新时间:{}，" + "\n" + "番剧简介:{}"+'\n\n'+'声优表:{}').format(index,bangumiTitle[0],tagformat,begin_date[0],whattime[0],introduction[0],actorformat)
-    except:
-        rtxt='Python：我告诉不了你，因为作者在这里写了个bug。'
-    return rtxt
+        url = requests.get(https)
+        url.encoding = 'utf-8'
+        text = url.text
+        # print(text)
+        # 初始化BS
+        soup = BeautifulSoup(text, 'lxml')
+
+        bangumiTitle = soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > div > h1')
+        begin_date = soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(5)')
+        whattime = soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(10)')
+        introduction=soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li.li_intro.clearfix > p')
+        actorlis=[]
+        taglis=[]
+        actor=None
+        #履历所有声优的超链接
+        for i in range(20):
+            try:
+                actor=soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(2) > a:nth-child({})'.format(i+2))
+                actor=re.findall(r'>(.*)</a>',str(actor[0]))
+                actorlis.append(actor[0])
+            except:
+                break
+        #同上，履历标签
+        for j in range(6):
+            try:
+                tag=soup.select('body > section > div.detail_top > div > div.row > div.txt_intro_con > ul > li:nth-child(3) > a:nth-child({})'.format(j+2))
+                tag=re.findall(r'>(.*)</a>',str(tag[0]))
+                taglis.append(tag[0])
+            except:
+                break
+        bangumiTitle=re.findall(r'>(.*)<',str(bangumiTitle))
+        begin_date=re.findall(r'</em>(.*)</li>',str(begin_date))
+        whattime=re.findall(r'</em>(.*)</li>',str(whattime))
+        introduction=re.findall(r'<p>(.*)</p></span>',str(introduction))
+
+        actorformat=str(actorlis).translate(str.maketrans('', '', r'[]'))
+        actorformat = str(actorformat).translate(str.maketrans('', '', r"''"))
+
+        tagformat=str(taglis).translate(str.maketrans('', '', r'[]'))
+        tagformat = str(tagformat).translate(str.maketrans('', '', r"''"))
+
+        try:
+            rtxt = ("Search result from bimibimi.me，有{}个结果，只取最新的，如需查找其他的，请补全。\n\n番剧标题:{}，\n标签:{}\n开播时间:{}，更新时间:{}，" + "\n" + "番剧简介:{}"+'\n\n'+'声优表:{}').format(index,bangumiTitle[0],tagformat,begin_date[0],whattime[0],introduction[0],actorformat)
+        except Exception as e:
+            rtxt='Python：我告诉不了你，因为作者在这里写了个bug。{}'.format(e)
+        return rtxt
+    except Exception as e:
+        return e
+
+def fucn():
+    a=str(dic)
+    print(len(a))
+    b=str(bimilib)
+    print(len(bimilib))
